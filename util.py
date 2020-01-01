@@ -84,7 +84,8 @@ def image_concat(g_preds, d_preds=None, size=None):
         result = np.ones([(1 + (d_pred is not None)) * hsize, dsize, 3]) * 255
         if d_pred is not None:
             #d_pred_new = imresize((np.concatenate([d_pred] * 3, 2) - 128) * 2, g_pred.shape[0:2], interp='nearest')
-            d_pred_new = cv2.resize((np.concatenate([d_pred] * 3, 2) - 128) * 2, g_pred.shape[0:2], interpolation=cv2.INTER_NEAREST)
+            d_pred_new = cv2.resize((np.concatenate([d_pred] * 3, 2) - 128) * 2, g_pred.shape[0:2][::-1],
+                    interpolation=cv2.INTER_NEAREST)
             result[hsize-g_pred.shape[0]:hsize+g_pred.shape[0], :g_pred.shape[1], :] = np.concatenate([g_pred,
                                                                                                        d_pred_new], 0)
         else:
@@ -246,7 +247,6 @@ def prepare_result_dir(conf):
         if conf.resume:
             copy(conf.resume, os.path.join(conf.output_dir_path, 'starting_checkpoint.pth.tar'))
     return conf.output_dir_path
-
 
 
 def homography_based_on_top_corners_x_shift(rand_h):
