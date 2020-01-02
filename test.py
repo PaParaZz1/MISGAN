@@ -6,6 +6,8 @@ from configs import Config
 from traceback import print_exc
 from skvideo.io import FFmpegWriter
 import os
+import numpy as np
+import torch
 from non_rect import *
 
 
@@ -31,7 +33,7 @@ def test_one_scale(gan, input_tensor, scale, must_divide, affine=None, return_te
 
 
 def concat_images(images, margin, input_spot):
-    h_sizes = [im.shape[0] for im in zip(*images)[0]]
+    h_sizes = [im.shape[0] for im in list(zip(*images))[0]]
     w_sizes = [im.shape[1] for im in images[0]]
     h_total_size = np.sum(h_sizes) + margin * (len(images) - 1)
     w_total_size = np.sum(w_sizes) + margin * (len(images) - 1)
@@ -45,9 +47,8 @@ def concat_images(images, margin, input_spot):
             bottom_right_corner_w = int(top_left_corner_w + w_sizes[i])
 
             if [i, j] == input_spot:
-                collage[top_left_corner_h - margin/2: bottom_right_corner_h + margin/2,
-                        top_left_corner_w - margin/2: bottom_right_corner_w + margin/2,
-                        :] = [255, 0, 0]
+                collage[top_left_corner_h - margin//2: bottom_right_corner_h + margin//2,
+                        top_left_corner_w - margin//2: bottom_right_corner_w + margin//2, :] = [255, 0, 0]
             collage[top_left_corner_h:bottom_right_corner_h, top_left_corner_w:bottom_right_corner_w] = images[j][i]
 
     return collage

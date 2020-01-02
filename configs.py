@@ -19,7 +19,7 @@ class Config:
 
         # Test
         self.parser.add_argument('--test_collage', default=True, action='store_true',  help='Create collage in test?')
-        self.parser.add_argument('--test_video', default=True, action='store_true', help='Create retarget-video in test?')
+        self.parser.add_argument('--test_video', default=False, action='store_true', help='Create retarget-video in test?')
         self.parser.add_argument('--test_non_rect', default=False, action='store_true',  help='Produce non-rectangular transformations in test?')
         self.parser.add_argument('--test_vid_scales', type=float, default=[2.2, 0.1, 2.2, 0.1], nargs='+', help='boundary scales for output video: [max_v, min_v, max_h, min_h]')
         self.parser.add_argument('--collage_scales', type=float, default=[2.0, 1.25, 1.0, 0.66, 0.33], nargs='+', help='scales for collage (h=w, only one number)')
