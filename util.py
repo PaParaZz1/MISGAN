@@ -7,6 +7,7 @@ import glob
 from time import strftime, localtime
 from shutil import copy
 import torch
+from torch.utils.tensorboard import SummaryWriter
 
 
 def read_data(conf):
@@ -18,8 +19,8 @@ def read_shave_tensorize(path, must_divide):
     input_np = (np.array(Image.open(path).convert('RGB')) / 255.0)
 
     input_np_shaved = input_np[:(input_np.shape[0] // must_divide) * must_divide,
-                               :(input_np.shape[1] // must_divide) * must_divide,
-                               :]
+                      :(input_np.shape[1] // must_divide) * must_divide,
+                      :]
 
     input_tensor = im2tensor(input_np_shaved)
 
@@ -27,7 +28,6 @@ def read_shave_tensorize(path, must_divide):
 
 
 def tensor2im(image_tensors, imtype=np.uint8):
-
     if not isinstance(image_tensors, list):
         image_tensors = [image_tensors]
 
@@ -83,11 +83,12 @@ def image_concat(g_preds, d_preds=None, size=None):
         dsize = g_pred.shape[1] if size is None or size[1] is None else size[1]
         result = np.ones([(1 + (d_pred is not None)) * hsize, dsize, 3]) * 255
         if d_pred is not None:
-            #d_pred_new = imresize((np.concatenate([d_pred] * 3, 2) - 128) * 2, g_pred.shape[0:2], interp='nearest')
+            # d_pred_new = imresize((np.concatenate([d_pred] * 3, 2) - 128) * 2, g_pred.shape[0:2], interp='nearest')
             d_pred_new = cv2.resize((np.concatenate([d_pred] * 3, 2) - 128) * 2, g_pred.shape[0:2][::-1],
-                    interpolation=cv2.INTER_NEAREST)
-            result[hsize-g_pred.shape[0]:hsize+g_pred.shape[0], :g_pred.shape[1], :] = np.concatenate([g_pred,
-                                                                                                       d_pred_new], 0)
+                                    interpolation=cv2.INTER_NEAREST)
+            result[hsize - g_pred.shape[0]:hsize + g_pred.shape[0], :g_pred.shape[1], :] = np.concatenate([g_pred,
+                                                                                                           d_pred_new],
+                                                                                                          0)
         else:
             result[hsize - g_pred.shape[0]:, :, :] = g_pred
         results.append(np.uint8(np.round(result)))
@@ -134,6 +135,8 @@ class Visualizer:
         if conf.reconstruct_loss_stop_iter > 0:
             self.Rec_loss = [None] * conf.max_iters
 
+        self.writer = SummaryWriter(log_dir=self.conf.output_dir_path)
+
     def recreate_fig(self):
         self.fig = plt.figure(figsize=(18, 9))
         gs = gridspec.GridSpec(8, 8)
@@ -172,25 +175,28 @@ class Visualizer:
 
     def test_and_display(self, i):
         if not i % self.conf.print_freq and i > 0:
-            self.G_loss[i-self.conf.print_freq:i] = self.gan.losses_G_gan.detach().cpu().float().numpy().tolist()
-            self.D_loss_real[i-self.conf.print_freq:i] = self.gan.losses_D_real.detach().cpu().float().numpy().tolist()
-            self.D_loss_fake[i-self.conf.print_freq:i] = self.gan.losses_D_fake.detach().cpu().float().numpy().tolist()
+            self.G_loss[i - self.conf.print_freq:i] = self.gan.losses_G_gan.detach().cpu().float().numpy().tolist()
+            self.D_loss_real[
+            i - self.conf.print_freq:i] = self.gan.losses_D_real.detach().cpu().float().numpy().tolist()
+            self.D_loss_fake[
+            i - self.conf.print_freq:i] = self.gan.losses_D_fake.detach().cpu().float().numpy().tolist()
             if self.conf.reconstruct_loss_stop_iter > i:
-                self.Rec_loss[i-self.conf.print_freq:i] = self.gan.losses_G_reconstruct.detach().cpu().float().numpy().tolist()
+                self.Rec_loss[
+                i - self.conf.print_freq:i] = self.gan.losses_G_reconstruct.detach().cpu().float().numpy().tolist()
 
             if self.conf.reconstruct_loss_stop_iter < i:
                 print('iter: %d, G_loss: %f, D_loss_real: %f, D_loss_fake: %f, LR: %f' %
-                      (i, self.G_loss[i-1], self.D_loss_real[i-1], self.D_loss_fake[i-1],
+                      (i, self.G_loss[i - 1], self.D_loss_real[i - 1], self.D_loss_fake[i - 1],
                        self.gan.lr_scheduler_G.get_lr()[0]))
             else:
                 print('iter: %d, G_loss: %f, D_loss_real: %f, D_loss_fake: %f, Rec_loss: %f, LR: %f' %
-                      (i, self.G_loss[i-1], self.D_loss_real[i-1], self.D_loss_fake[i-1], self.Rec_loss[i-1],
+                      (i, self.G_loss[i - 1], self.D_loss_real[i - 1], self.D_loss_fake[i - 1], self.Rec_loss[i - 1],
                        self.gan.lr_scheduler_G.get_lr()[0]))
 
         if not i % self.conf.display_freq and i > 0:
-            plt.gcf().clear()
-            plt.close()
-            self.recreate_fig()
+            # plt.gcf().clear()
+            # plt.close()
+            # self.recreate_fig()
 
             # choice = np.random.randint(0, len(self.test_inputs))
             # test_input, test_input_size = self.test_inputs[choice], self.test_input_sizes[choice]
@@ -211,25 +217,40 @@ class Visualizer:
             reconstructs = self.gan.reconstruct
             input_size = self.gan.input_tensor_noised.shape[2:]
 
-            result = image_concat(tensor2im(g_preds), tensor2im(d_preds), (input_size[0]*2, input_size[1]*2))
-            self.plot_gan_loss[0].set_data(range(i), self.G_loss[:i])
-            self.plot_gan_loss[1].set_data(range(i), self.D_loss_real[:i])
-            self.plot_gan_loss[2].set_data(range(i), self.D_loss_fake[:i])
-            self.gan_loss.set_xlim(0, i)
+            g_preds_im = tensor2im(g_preds)
+            d_preds_im = tensor2im(d_preds)
+
+            # result = image_concat(g_preds_im, d_preds_im, (input_size[0] * 2, input_size[1] * 2))
+            # self.plot_gan_loss[0].set_data(range(i), self.G_loss[:i])
+            # self.plot_gan_loss[1].set_data(range(i), self.D_loss_real[:i])
+            # self.plot_gan_loss[2].set_data(range(i), self.D_loss_fake[:i])
+            # self.gan_loss.set_xlim(0, i)
+
+            # summary
+            self.writer.add_scalar('loss/G', self.G_loss[i - 1], i)
+            self.writer.add_scalar('loss/D_real', self.D_loss_real[i - 1], i)
+            self.writer.add_scalar('loss/D_fake', self.D_loss_fake[i - 1], i)
+
+            for j, im in enumerate(g_preds_im):
+                self.writer.add_image('G/%d' % j, im, i, dataformats='HWC')
+            for j, im in enumerate(d_preds_im):
+                self.writer.add_image('D/%d' % j, im, i, dataformats='HWC')
 
             if self.conf.reconstruct_loss_stop_iter > i:
-                self.plot_reconstruct_loss[0].set_data(range(i), self.Rec_loss[:i])
-                self.reconstruct_loss.set_ylim(np.min(self.Rec_loss[:i]), np.max(self.Rec_loss[:i]))
-                self.reconstruct_loss.set_xlim(0, i)
+                # self.plot_reconstruct_loss[0].set_data(range(i), self.Rec_loss[:i])
+                # self.reconstruct_loss.set_ylim(np.min(self.Rec_loss[:i]), np.max(self.Rec_loss[:i]))
+                # self.reconstruct_loss.set_xlim(0, i)
 
-            self.result.imshow(np.clip(result, 0, 255), vmin=0, vmax=255)
-            self.real_example.imshow(np.clip(tensor2im(self.gan.real_example[0:1, :, :, :]), 0, 255), vmin=0, vmax=255)
-            self.d_map_real.imshow(self.gan.d_pred_real[0:1, :, :, :].detach().cpu().float().numpy().squeeze(),
-                                   cmap='gray', vmin=0, vmax=1)
-            if self.conf.reconstruct_loss_stop_iter > i:
-                self.reconstruction.imshow(np.clip(image_concat([tensor2im(reconstructs)]), 0, 255), vmin=0, vmax=255)
+                self.writer.add_scalar('loss/reconstruct', self.Rec_loss[i - 1], i)
 
-            plt.savefig(self.conf.output_dir_path + '/monitor_%d' % i)
+            # self.result.imshow(np.clip(result, 0, 255), vmin=0, vmax=255)
+            # self.real_example.imshow(np.clip(tensor2im(self.gan.real_example[0:1, :, :, :]), 0, 255), vmin=0, vmax=255)
+            # self.d_map_real.imshow(self.gan.d_pred_real[0:1, :, :, :].detach().cpu().float().numpy().squeeze(),
+            #                        cmap='gray', vmin=0, vmax=1)
+            # if self.conf.reconstruct_loss_stop_iter > i:
+            #     self.reconstruction.imshow(np.clip(image_concat([tensor2im(reconstructs)]), 0, 255), vmin=0, vmax=255)
+
+            # plt.savefig(self.conf.output_dir_path + '/monitor_%d' % i)
 
             save_image(self.gan.G_pred, self.conf.output_dir_path + '/result_iter_%d.png' % i)
 
@@ -280,7 +301,7 @@ def homography_grid(theta, size):
     """
     a = 1
     b = 1
-    y, x = torch.meshgrid((torch.linspace(-b, b, np.int(size[-2]*a)), torch.linspace(-b, b, np.int(size[-1]*a))))
+    y, x = torch.meshgrid((torch.linspace(-b, b, np.int(size[-2] * a)), torch.linspace(-b, b, np.int(size[-1] * a))))
     n = np.int(size[-2] * a) * np.int(size[-1] * a)
     hxy = torch.ones(n, 3, dtype=torch.float)
     hxy[:, 0] = x.contiguous().view(-1)
@@ -288,7 +309,7 @@ def homography_grid(theta, size):
     out = hxy[None, ...].cuda().matmul(theta.transpose(1, 2))
     # normalize
     out = out[:, :, :2] / out[:, :, 2:]
-    return out.view(theta.shape[0], np.int(size[-2]*a), np.int(size[-1]*a), 2)
+    return out.view(theta.shape[0], np.int(size[-2] * a), np.int(size[-1] * a), 2)
 
 
 def hist_match(source, template, mask_3ch):
