@@ -15,6 +15,8 @@ class Config:
         self.parser.add_argument('--output_dir_path', default=os.path.dirname(os.path.abspath(__file__)) + '/results', help='path to a directory to save results to')
         self.parser.add_argument('--name', default='fruit', help='name of current experiment, to be used for saving the results')
         self.parser.add_argument('--resume', type=str, default=None, help='checkpoint to resume from')
+        self.parser.add_argument('--replace', type=str, default=None, help='checkpoint used to partially replace G')
+        self.parser.add_argument('--replace_set', type=str, default=None, help='prefix of replaced G layers')
         self.parser.add_argument('--test_params_path', type=str, default=os.path.dirname(os.path.abspath(__file__)) + '/examples/fruit/checkpoint_0075000.pth.tar', help='checkpoint for testing')
 
         # Test

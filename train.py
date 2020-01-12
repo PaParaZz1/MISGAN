@@ -4,7 +4,6 @@ import os
 from util import Visualizer, read_data
 from traceback import print_exc
 
-
 # Load configuration
 conf = Config().parse()
 
@@ -16,7 +15,11 @@ gan = InGAN(conf)
 
 # If required, fine-tune from some checkpoint
 if conf.resume is not None:
+    # assert conf.resume
     gan.resume(os.path.join(conf.resume))
+
+if conf.replace:
+    gan.replace(os.path.join(conf.replace), set(eval(conf.replace_set)))
 
 # Define visualizer to monitor learning process
 visualizer = Visualizer(gan, conf, input_images)
