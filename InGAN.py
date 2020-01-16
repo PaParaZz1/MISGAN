@@ -65,7 +65,11 @@ class InGAN:
         self.D.apply(networks.weights_init)
 
         # Initialize optimizers
-        self.optimizer_G = torch.optim.Adam(self.G.parameters(), lr=conf.g_lr, betas=(conf.beta1, 0.999))
+        if self.conf.gopt_sgd:
+            g_opt = torch.optim.SGD(self.G.parameters(), lr=conf.g_lr)
+        else:
+            g_opt = torch.optim.Adam(self.G.parameters(), lr=conf.g_lr, betas=(conf.beta1, 0.999))
+        self.optimizer_G = g_opt
         self.optimizer_D = torch.optim.Adam(self.D.parameters(), lr=conf.d_lr, betas=(conf.beta1, 0.999))
 
         # Learning rate scheduler

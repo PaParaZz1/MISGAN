@@ -46,6 +46,7 @@ class Config:
 
         # Optimization hyper-parameters
         self.parser.add_argument('--g_lr', type=float, default=0.00005, help='initial learning rate for generator')
+        self.parser.add_argument('--gopt_sgd', action='store_true', help='use SGD as the G optimizer')
         self.parser.add_argument('--d_lr', type=float, default=0.00005, help='initial learning rate for discriminator')
         self.parser.add_argument('--lr_start_decay_iter', type=float, default=20000, help='iteration from which linear decay of lr starts until max_iter')
         self.parser.add_argument('--beta1', type=float, default=0.5, help='momentum term of adam')
