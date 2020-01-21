@@ -3,6 +3,7 @@ from collections import OrderedDict
 import torch
 from torch.autograd import Variable
 import networks
+from generator import Generator
 from util import random_size, get_scale_weights
 import os
 import warnings
@@ -31,8 +32,9 @@ class InGAN:
         self.real_example = torch.FloatTensor(1, 3, conf.output_crop_size, conf.output_crop_size).cuda()
 
         # Define networks
-        self.G = networks.Generator(conf.G_base_channels, conf.G_num_resblocks, conf.G_num_downscales, conf.G_use_bias,
-                                    conf.G_skip)
+        # self.G = networks.Generator(conf.G_base_channels, conf.G_num_resblocks, conf.G_num_downscales, conf.G_use_bias,
+        #                            conf.G_skip)
+        self.G = Generator(32, 32)
         self.D = networks.MultiScaleDiscriminator(conf.output_crop_size, self.conf.D_max_num_scales,
                                                   self.conf.D_scale_factor, self.conf.D_base_channels)
         self.GAN_loss_layer = networks.GANLoss()
@@ -163,8 +165,8 @@ class InGAN:
 
     def test(self, input_tensor, output_size, rand_affine, input_size, run_d_pred=True, run_reconstruct=True):
         with torch.no_grad():
-            self.G_pred = self.G.forward(Variable(input_tensor.detach()), output_size=output_size,
-                                         random_affine=rand_affine)
+            self.G_pred = self.G.forward(Variable(input_tensor.detach()), output_size=output_size)  # ,
+            # random_affine=rand_affine)
             if run_d_pred:
                 scale_weights_for_output = get_scale_weights(i=self.cur_iter,
                                                              max_i=self.conf.D_scale_weights_iter_for_even_scales,
@@ -187,8 +189,7 @@ class InGAN:
 
             self.G_preds = [input_tensor, self.G_pred]
 
-            self.reconstruct = self.G.forward(self.G_pred, output_size=input_size,
-                                              random_affine=-rand_affine) if run_reconstruct else None
+            self.reconstruct = self.G.forward(self.G_pred, output_size=input_size) if run_reconstruct else None
 
         return self.G_preds, self.D_preds, self.reconstruct
 
@@ -211,7 +212,8 @@ class InGAN:
         self.input_tensor_noised = self.input_tensor + (torch.rand_like(self.input_tensor) - 0.5) * 2.0 / 255
 
         # Generator forward pass
-        self.G_pred = self.G.forward(self.input_tensor_noised, output_size=output_size, random_affine=random_affine)
+        self.G_pred = self.G.forward(self.input_tensor_noised,
+                                     output_size=output_size)  # , random_affine=random_affine)
 
         # Run generator result through discriminator forward pass
         self.scale_weights = get_scale_weights(i=self.cur_iter,
@@ -225,9 +227,16 @@ class InGAN:
 
         # If reconstruction-loss is used, run through decoder to reconstruct, then calculate reconstruction loss
         if self.conf.reconstruct_loss_stop_iter > self.cur_iter:
-            self.reconstruct = self.G.forward(self.G_pred, output_size=self.input_tensor.shape[2:],
-                                              random_affine=-random_affine)
-            self.loss_G_reconstruct = self.criterionReconstruction(self.reconstruct, self.input_tensor, self.loss_mask)
+            self.reconstruct = self.G.forward(self.G_pred, output_size=self.input_tensor.shape[2:], ind=0)  # ,
+            # random_affine=-random_affine)
+            scale = 1
+            self.loss_G_reconstruct = 0
+            for i in range(len(self.reconstruct)):
+                import torch.nn as nn
+                input_ = nn.UpsamplingBilinear2d(scale_factor=scale)(self.input_tensor)
+                self.loss_G_reconstruct += self.criterionReconstruction(self.reconstruct[-(i + 1)], input_,
+                                                                        self.loss_mask)
+                scale /= 2
 
         # Calculate generator loss, based on discriminator prediction on generator result
         self.loss_G_GAN = self.criterionGAN(d_pred_fake, is_d_input_real=True)
@@ -252,8 +261,8 @@ class InGAN:
         if self.cur_iter > self.conf.G_extra_inverse_train_start_iter:
             for _ in range(self.conf.G_extra_inverse_train):
                 self.optimizer_G.zero_grad()
-                self.inverse = self.G.forward(self.G_pred.detach(), output_size=self.input_tensor.shape[2:],
-                                              random_affine=-random_affine)
+                self.inverse = self.G.forward(self.G_pred.detach(), output_size=self.input_tensor.shape[2:])  # ,
+                # random_affine=-random_affine)
                 self.loss_G_inverse = (self.criterionReconstruction(self.inverse, self.input_tensor, self.loss_mask) *
                                        self.conf.G_extra_inverse_train_ratio)
                 self.loss_G_inverse.backward()

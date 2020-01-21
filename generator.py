@@ -69,10 +69,10 @@ class Generator(nn.Module):
         self.G = []
         for i in range(self.N):
             self.G.append(G_layer(self.nfc, self.min_nfc, self.in_channels, self.num_layers))
-        self.g=nn.Sequential(*self.G)
+        self.g = nn.Sequential(*self.G)
 
-    def forward(self, x, size):
-        x = nn.UpsamplingBilinear2d(size=size)(x)
+    def forward(self, x, output_size, ind = -1):
+        x = nn.UpsamplingBilinear2d(size=output_size)(x)
         x = self.head(x)
         output = []
         for i in range(self.N):
@@ -80,12 +80,15 @@ class Generator(nn.Module):
             output.append(x)
             if i < self.N - 1:
                 x = nn.UpsamplingBilinear2d(scale_factor=2)(x)
-        return output
+        if ind == -1:
+            return output[-1]
+        else :
+            return output
 
 
 if __name__ == "__main__":
     model = Generator(32, 32, N=3, in_channels=3).cuda()
-    torch.save(model.state_dict(),'test.pth')
+    torch.save(model.state_dict(), 'test.pth')
     x = torch.randn([3, 3, 200, 300]).cuda()
     with torch.no_grad():
         print(model(x, [400, 500])[2].shape)
