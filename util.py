@@ -7,7 +7,10 @@ import glob
 from time import strftime, localtime
 from shutil import copy
 import torch
-from torch.utils.tensorboard import SummaryWriter
+try:
+    from torch.utils.tensorboard import SummaryWriter
+except:
+    from tensorboardX import SummaryWriter
 
 
 def read_data(conf):

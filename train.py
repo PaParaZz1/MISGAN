@@ -1,3 +1,5 @@
+from tqdm import trange
+
 from configs import Config
 from InGAN import InGAN
 import os
@@ -25,7 +27,7 @@ if conf.replace:
 visualizer = Visualizer(gan, conf, input_images)
 
 # Main training loop
-for i in range(conf.max_iters + 1):
+for i in trange(conf.max_iters + 1):
 
     # Train a single iteration on the current data instance
     try:
